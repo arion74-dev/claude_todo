@@ -204,6 +204,12 @@
       </div>
     </div>
 
+    <!-- DB Error -->
+    <div id="db-error" class="card" style="display: none; padding: 20px 24px; border: 2px solid #FFE4E6; margin-bottom: 16px;">
+      <p style="font-size: 15px; font-weight: 700; color: #F04452; margin: 0 0 6px;">DB 연결 오류</p>
+      <p id="db-error-msg" style="font-size: 13px; color: #6B7684; margin: 0; font-family: monospace; word-break: break-all;"></p>
+    </div>
+
     <!-- Loading -->
     <div id="loading-state" style="text-align: center; padding: 60px 20px; color: #B0B8C1;">
       <div style="font-size: 32px; margin-bottom: 12px; animation: spin 1s linear infinite; display: inline-block;">⏳</div>
@@ -251,6 +257,18 @@
     }
 
     // =====================================================
+    // 에러 표시
+    // =====================================================
+    function showDbError(msg) {
+      const el = document.getElementById('db-error');
+      document.getElementById('db-error-msg').textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideDbError() {
+      document.getElementById('db-error').style.display = 'none';
+    }
+
+    // =====================================================
     // 데이터 로드
     // =====================================================
     async function loadTodos() {
@@ -263,9 +281,11 @@
 
       if (error) {
         console.error('로드 실패:', error.message);
-        document.getElementById('sub-text').textContent = '불러오기 실패 — 콘솔을 확인하세요';
+        showDbError(`로드 실패: ${error.message}`);
+        document.getElementById('sub-text').textContent = '불러오기 실패';
         return;
       }
+      hideDbError();
 
       cache.clear();
       (data || []).forEach(t => cache.set(t.id, t));
@@ -451,6 +471,7 @@
 
       if (error) {
         console.error('추가 실패:', error.message);
+        showDbError(`추가 실패: ${error.message}`);
         return;
       }
       input.value = '';
@@ -464,7 +485,7 @@
         .update({ completed: !currentCompleted })
         .eq('id', id);
 
-      if (error) { console.error('토글 실패:', error.message); return; }
+      if (error) { console.error('토글 실패:', error.message); showDbError(`토글 실패: ${error.message}`); return; }
       await loadTodos();
     }
 
@@ -474,7 +495,7 @@
         .update({ task: newTask })
         .eq('id', id);
 
-      if (error) { console.error('수정 실패:', error.message); return; }
+      if (error) { console.error('수정 실패:', error.message); showDbError(`수정 실패: ${error.message}`); return; }
       await loadTodos();
     }
 
@@ -484,7 +505,7 @@
         .delete()
         .eq('id', id);
 
-      if (error) { console.error('삭제 실패:', error.message); return; }
+      if (error) { console.error('삭제 실패:', error.message); showDbError(`삭제 실패: ${error.message}`); return; }
       await loadTodos();
     }
 
