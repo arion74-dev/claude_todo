@@ -5,7 +5,7 @@
 // https://supabase.com/dashboard → 프로젝트 선택 → Settings → API
 // =====================================================
 
-const SUPABASE_URL = 'https://qpnqvflbenljasikmycj.supabase.co/';
+const SUPABASE_URL = 'https://qpnqvflbenljasikmycj.supabase.co';
 // 예: 'https://xyzabcdef.supabase.co'
 
 const SUPABASE_ANON_KEY = 'sb_publishable_lWP7Lb9gFZx50fxw2J5vpg_qhs6VBNu';
