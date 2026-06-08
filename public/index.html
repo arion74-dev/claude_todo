@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>myTODO</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+                   'Pretendard', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #F2F4F6;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    }
+
+    .app-container {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 48px 16px 120px;
+    }
+
+    /* Cards */
+    .card {
+      background: #FFFFFF;
+      border-radius: 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+    }
+
+    /* Input */
+    .input-field {
+      width: 100%;
+      border: 1.5px solid #E5E8EB;
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-size: 15px;
+      color: #191F28;
+      background: #FFFFFF;
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+    .input-field:focus {
+      border-color: #3182F6;
+    }
+    .input-field::placeholder {
+      color: #B0B8C1;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background-color: #3182F6;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 20px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s ease;
+    }
+    .btn-primary:hover { background-color: #1B6EF2; }
+    .btn-primary:active { background-color: #1460D8; }
+    .btn-primary:disabled {
+      background-color: #D1D6DB;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: #FFFFFF;
+      color: #4E5968;
+      border: 1.5px solid #E5E8EB;
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-outline:hover {
+      border-color: #3182F6;
+      color: #3182F6;
+    }
+
+    .btn-outline-danger:hover {
+      border-color: #F04452 !important;
+      color: #F04452 !important;
+    }
+
+    .btn-cancel {
+      background: #F2F4F6;
+      color: #4E5968;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 0.15s;
+    }
+    .btn-cancel:hover { background-color: #E5E8EB; }
+
+    /* Checkbox */
+    .checkbox-btn {
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      border-radius: 50%;
+      border: 2px solid #D1D6DB;
+      background: #FFFFFF;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, background-color 0.15s;
+    }
+    .checkbox-btn.checked {
+      border-color: #3182F6;
+      background-color: #3182F6;
+    }
+
+    /* Todo item */
+    .todo-item {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .todo-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Animations */
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in {
+      animation: fadeSlideIn 0.25s ease forwards;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D1D6DB; border-radius: 2px; }
+
+    /* Badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      background: #EFF6FF;
+      color: #3182F6;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 100px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Header -->
+    <div style="margin-bottom: 28px;">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
+        <h1 style="font-size: 26px; font-weight: 700; color: #191F28; margin: 0;">
+          할 일 목록
+        </h1>
+        <span class="badge" id="remaining-badge" style="display: none;"></span>
+      </div>
+      <p style="font-size: 14px; color: #6B7684; margin: 0;" id="sub-text">불러오는 중...</p>
+    </div>
+
+    <!-- Input Card -->
+    <div class="card" style="padding: 16px; margin-bottom: 16px;">
+      <div style="display: flex; gap: 10px;">
+        <input
+          type="text"
+          id="todo-input"
+          class="input-field"
+          placeholder="할 일을 입력하세요"
+          style="flex: 1;"
+        >
+        <button id="add-btn" class="btn-primary">추가</button>
+      </div>
+    </div>
+
+    <!-- Config Error -->
+    <div id="config-error" class="card" style="display: none; padding: 28px 24px; border: 2px solid #FFE4E6;">
+      <div style="font-size: 32px; margin-bottom: 14px;">⚠️</div>
+      <p style="font-size: 17px; font-weight: 700; color: #191F28; margin: 0 0 8px;">Supabase 설정이 필요해요</p>
+      <p style="font-size: 14px; color: #6B7684; line-height: 1.7; margin: 0 0 20px;">
+        <code style="background: #F2F4F6; padding: 2px 7px; border-radius: 5px; font-size: 13px;">public/config.js</code> 파일을 열고<br>
+        Supabase URL과 anon key를 입력해주세요.
+      </p>
+      <div style="background: #F8F9FA; border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #4E5968; line-height: 1.8; font-family: monospace;">
+        const SUPABASE_URL = '<span style="color: #3182F6;">https://qpnqvflbenljasikmycj.supabase.co</span>';<br>
+        const SUPABASE_ANON_KEY = '<span style="color: #3182F6;">sb_publishable_lWP7Lb9gFZx50fxw2J5vpg_qhs6VBNu</span>';
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loading-state" style="text-align: center; padding: 60px 20px; color: #B0B8C1;">
+      <div style="font-size: 32px; margin-bottom: 12px; animation: spin 1s linear infinite; display: inline-block;">⏳</div>
+    </div>
+
+    <!-- Empty State -->
+    <div id="empty-state" style="display: none; text-align: center; padding: 70px 20px;">
+      <div style="font-size: 52px; margin-bottom: 16px;">✅</div>
+      <p style="font-size: 17px; font-weight: 600; color: #4E5968; margin: 0 0 6px;">할 일이 없어요</p>
+      <p style="font-size: 14px; color: #B0B8C1; margin: 0;">위에서 새 할 일을 추가해보세요</p>
+    </div>
+
+    <!-- Todo List -->
+    <div id="todo-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    // =====================================================
+    // State
+    // =====================================================
+    let db = null;
+    const cache = new Map(); // id → todo
+
+    // =====================================================
+    // Supabase 초기화
+    // =====================================================
+    function initSupabase() {
+      const unconfigured =
+        typeof SUPABASE_URL === 'undefined' ||
+        typeof SUPABASE_ANON_KEY === 'undefined' ||
+        SUPABASE_URL === 'YOUR_SUPABASE_URL' ||
+        SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY';
+
+      if (unconfigured) {
+        document.getElementById('loading-state').style.display = 'none';
+        document.getElementById('config-error').style.display = 'block';
+        document.getElementById('sub-text').textContent = '설정을 완료해주세요';
+        return false;
+      }
+
+      db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      return true;
+    }
+
+    // =====================================================
+    // 데이터 로드
+    // =====================================================
+    async function loadTodos() {
+      const { data, error } = await db
+        .from('todos')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      document.getElementById('loading-state').style.display = 'none';
+
+      if (error) {
+        console.error('로드 실패:', error.message);
+        document.getElementById('sub-text').textContent = '불러오기 실패 — 콘솔을 확인하세요';
+        return;
+      }
+
+      cache.clear();
+      (data || []).forEach(t => cache.set(t.id, t));
+      renderList(data || []);
+    }
+
+    // =====================================================
+    // 렌더링
+    // =====================================================
+    function renderList(todos) {
+      const list = document.getElementById('todo-list');
+      const empty = document.getElementById('empty-state');
+      const badge = document.getElementById('remaining-badge');
+      const sub = document.getElementById('sub-text');
+
+      if (todos.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        badge.style.display = 'none';
+        sub.textContent = '오늘도 화이팅!';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      const remaining = todos.filter(t => !t.completed).length;
+      const total = todos.length;
+
+      if (remaining > 0) {
+        badge.style.display = 'inline-flex';
+        badge.textContent = `${remaining}개 남음`;
+      } else {
+        badge.style.display = 'none';
+      }
+      sub.textContent = `전체 ${total}개 · 완료 ${total - remaining}개`;
+
+      list.innerHTML = todos.map(todoHTML).join('');
+    }
+
+    function todoHTML(todo) {
+      const task = esc(todo.task);
+      const done = todo.completed;
+      return `
+        <div
+          class="card todo-item fade-in"
+          data-todo-id="${todo.id}"
+          style="padding: 16px 20px;"
+        >
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <!-- Checkbox -->
+            <button
+              class="checkbox-btn ${done ? 'checked' : ''}"
+              data-action="toggle"
+              title="${done ? '미완료로 변경' : '완료로 표시'}"
+            >
+              ${done ? checkIcon() : ''}
+            </button>
+
+            <!-- Task -->
+            <span style="
+              flex: 1;
+              font-size: 15px;
+              font-weight: 500;
+              color: ${done ? '#B0B8C1' : '#191F28'};
+              text-decoration: ${done ? 'line-through' : 'none'};
+              word-break: break-all;
+              line-height: 1.5;
+            ">${task}</span>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+              <button class="btn-outline" data-action="edit">수정</button>
+              <button class="btn-outline btn-outline-danger" data-action="delete">삭제</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function editHTML(id, task) {
+      return `
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <input
+            type="text"
+            class="input-field"
+            data-edit-id="${id}"
+            value="${esc(task)}"
+            style="flex: 1;"
+          >
+          <button class="btn-primary" data-action="save" style="padding: 13px 16px;">저장</button>
+          <button class="btn-cancel" data-action="cancel">취소</button>
+        </div>
+      `;
+    }
+
+    function checkIcon() {
+      return `<svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>`;
+    }
+
+    // =====================================================
+    // 이벤트: 리스트
+    // =====================================================
+    document.getElementById('todo-list').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+
+      const action = btn.dataset.action;
+      const itemEl = btn.closest('[data-todo-id]');
+      const id = itemEl?.dataset.todoId;
+
+      if (action === 'toggle' && id) {
+        const todo = cache.get(id);
+        if (todo) await toggleTodo(id, todo.completed);
+      }
+      if (action === 'edit' && id) {
+        const todo = cache.get(id);
+        if (todo) {
+          itemEl.style.padding = '16px 20px';
+          itemEl.innerHTML = editHTML(id, todo.task);
+          itemEl.querySelector('input').focus();
+        }
+      }
+      if (action === 'delete' && id) {
+        await deleteTodo(id);
+      }
+      if (action === 'save' && id) {
+        const input = itemEl.querySelector(`[data-edit-id="${id}"]`);
+        const newTask = input?.value.trim();
+        if (newTask) await updateTodo(id, newTask);
+      }
+      if (action === 'cancel') {
+        await loadTodos();
+      }
+    });
+
+    document.getElementById('todo-list').addEventListener('keydown', async (e) => {
+      const input = e.target.closest('[data-edit-id]');
+      if (!input) return;
+
+      const id = input.dataset.editId;
+      if (e.key === 'Enter') {
+        const newTask = input.value.trim();
+        if (newTask) await updateTodo(id, newTask);
+      }
+      if (e.key === 'Escape') {
+        await loadTodos();
+      }
+    });
+
+    // =====================================================
+    // 이벤트: 입력
+    // =====================================================
+    document.getElementById('add-btn').addEventListener('click', addTodo);
+    document.getElementById('todo-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addTodo();
+    });
+
+    // =====================================================
+    // CRUD
+    // =====================================================
+    async function addTodo() {
+      const input = document.getElementById('todo-input');
+      const addBtn = document.getElementById('add-btn');
+      const task = input.value.trim();
+      if (!task) {
+        input.focus();
+        input.style.borderColor = '#F04452';
+        setTimeout(() => (input.style.borderColor = ''), 800);
+        return;
+      }
+
+      addBtn.disabled = true;
+      addBtn.textContent = '추가 중...';
+
+      const { error } = await db
+        .from('todos')
+        .insert([{ task, completed: false }]);
+
+      addBtn.disabled = false;
+      addBtn.textContent = '추가';
+
+      if (error) {
+        console.error('추가 실패:', error.message);
+        return;
+      }
+      input.value = '';
+      input.focus();
+      await loadTodos();
+    }
+
+    async function toggleTodo(id, currentCompleted) {
+      const { error } = await db
+        .from('todos')
+        .update({ completed: !currentCompleted })
+        .eq('id', id);
+
+      if (error) { console.error('토글 실패:', error.message); return; }
+      await loadTodos();
+    }
+
+    async function updateTodo(id, newTask) {
+      const { error } = await db
+        .from('todos')
+        .update({ task: newTask })
+        .eq('id', id);
+
+      if (error) { console.error('수정 실패:', error.message); return; }
+      await loadTodos();
+    }
+
+    async function deleteTodo(id) {
+      const { error } = await db
+        .from('todos')
+        .delete()
+        .eq('id', id);
+
+      if (error) { console.error('삭제 실패:', error.message); return; }
+      await loadTodos();
+    }
+
+    // =====================================================
+    // 유틸
+    // =====================================================
+    function esc(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    // =====================================================
+    // 시작
+    // =====================================================
+    if (initSupabase()) {
+      loadTodos();
+    }
+  </script>
+</body>
+</html>
